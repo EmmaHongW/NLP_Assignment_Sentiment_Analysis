@@ -1,6 +1,7 @@
 from typing import List
 from utils import *
 import torch
+import torch.nn as nn
 from transformers import RobertaTokenizer, RobertaForSequenceClassification
 import numpy as np
 import pandas as pd
@@ -49,7 +50,7 @@ class Classifier:
         # Define the devide and the model, we need gpu for this task
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        self.n_classes = len(train_filename['polarity'].unique())
+        self.n_classes = len(train_data['polarity'].unique()) #was train_filename before
         
         # Set the batch size
         self.batchsize = 32
@@ -61,7 +62,8 @@ class Classifier:
         max_length = sequence_length(train_data, self.tokenizer)
 
         # Tokenize input data and create PyTorch DataLoader
-        X = train_data.apply(tokenize_text, axis=1)
+        #X = train_data.apply(tokenize_text, axis=1)
+        X = train_data.apply(tokenize_text, tokenizer=self.tokenizer, max_length=max_length, axis=1)
         input_ids = torch.cat([X[i]['input_ids'] for i in range(len(X))], dim=0)
         attention_masks = torch.cat([X[i]['attention_mask'] for i in range(len(X))], dim=0)
         y = torch.tensor(train_data['polarity'].values)

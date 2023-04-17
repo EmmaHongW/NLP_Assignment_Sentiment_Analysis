@@ -47,10 +47,18 @@ def sequence_length(data, tokenizer):
     return max(token_lengths) + 30
 
 # Tokenize input text
-def tokenize_text(text):
+#def tokenize_text(text):
+#    sentence_left = text['sentence_left']
+#    target = text['target']
+#    aspect_category = text['aspect_category_processed']
+#    sentence_right = text['sentence_right']
+#    input_text = '[CLS] ' + sentence_left + ' [SEP] ' + target + ' [SEP] ' + sentence_right + ' [SEP] ' #+ aspect_category + ' [SEP]'
+#    return tokenizer.encode_plus(input_text, add_special_tokens=False, max_length=max_length, padding='max_length', truncation=True, return_attention_mask=True, return_tensors='pt')
+
+def tokenize_text(text, tokenizer,max_length):
     sentence_left = text['sentence_left']
     target = text['target']
     aspect_category = text['aspect_category_processed']
     sentence_right = text['sentence_right']
-    input_text = '[CLS] ' + sentence_left + ' [SEP] ' + target + ' [SEP] ' + sentence_right + ' [SEP] ' #+ aspect_category + ' [SEP]'
+    input_text = '[CLS] ' + sentence_left + ' [SEP] ' + target + ' [SEP] ' + sentence_right + ' [SEP] '
     return tokenizer.encode_plus(input_text, add_special_tokens=False, max_length=max_length, padding='max_length', truncation=True, return_attention_mask=True, return_tensors='pt')
