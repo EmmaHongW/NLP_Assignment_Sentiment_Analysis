@@ -29,7 +29,7 @@ class Classifier:
         train_data = pd.read_csv(train_filename,sep="\t",header = None)
         train_data.columns = ['polarity', 'aspect_category', 'target', 'index', 'sentence']
 
-        if devfile is not None:
+        if dev_filename is not None:
             dev_data = pd.read_csv(dev_filename,sep="\t",header = None)
             dev_data.columns = ['polarity', 'aspect_category', 'target', 'index', 'sentence']
 
@@ -49,7 +49,7 @@ class Classifier:
         # Define the devide and the model, we need gpu for this task
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        self.n_classes = len(trainfile['polarity'].unique())
+        self.n_classes = len(train_filename['polarity'].unique())
         
         # Set the batch size
         self.batchsize = 32
@@ -69,7 +69,7 @@ class Classifier:
         # Set if you want to validate
         self.val = True
 
-        if val==True:
+        if self.val==True:
             # Split the dataset into training and validation sets
             train_X, val_X, train_y, val_y = train_test_split(input_ids, y, test_size=0.3, random_state=42)
             train_attention_masks, val_attention_masks, _, _ = train_test_split(attention_masks, y, test_size=0.3, random_state=42)
@@ -88,10 +88,10 @@ class Classifier:
         self.epochs = 15
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)
-        optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5) #, weight_decay=0.001
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=2e-5) #, weight_decay=0.001
 
         # Define the total number of training steps and the number of warmup steps
-        total_steps = len(train_dataloader) * epochs
+        total_steps = len(train_dataloader) * self.epochs
         warmup_steps = 0 #int(total_steps * 0.1)
         # Create the learning rate scheduler using the warmup steps
         scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
@@ -109,7 +109,7 @@ class Classifier:
                 input_ids = batch[0].to(device)
                 attention_mask = batch[1].to(device)
                 labels = batch[2].to(device)
-                outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
+                outputs = self.model(input_ids, attention_mask=attention_mask, labels=labels)
                 loss = loss_fn(outputs.logits, labels)
                 optimizer.zero_grad()
                 loss.backward()
@@ -126,13 +126,13 @@ class Classifier:
                     input_ids = batch[0].to(device)
                     attention_mask = batch[1].to(device)
                     labels = batch[2].to(device)
-                    outputs = model(input_ids, attention_mask=attention_mask)
+                    outputs = self.model(input_ids, attention_mask=attention_mask)
                     _, predicted = torch.max(outputs.logits, 1)
                     train_preds.extend(predicted.tolist())
                     train_labels.extend(labels.tolist())
                 train_acc = np.mean(np.array(train_preds) == np.array(train_labels))
                 
-            if val == True:
+            if self.val == True:
                 # Calculate validation accuracy
                 with torch.no_grad():
                     val_preds = []
@@ -141,7 +141,7 @@ class Classifier:
                         input_ids = batch[0].to(device)
                         attention_mask = batch[1].to(device)
                         labels = batch[2].to(device)
-                        outputs = model(input_ids, attention_mask=attention_mask)
+                        outputs = self.model(input_ids, attention_mask=attention_mask)
                         _, predicted = torch.max(outputs.logits, 1)
                         val_preds.extend(predicted.tolist())
                         val_labels.extend(labels.tolist())
@@ -185,7 +185,7 @@ class Classifier:
                 input_ids = batch[0].to(device)
                 attention_mask = batch[1].to(device)
                 labels = batch[2].to(device)
-                outputs = model(input_ids, attention_mask=attention_mask)
+                outputs = self.model(input_ids, attention_mask=attention_mask)
                 logits = outputs.logits
                 pred = logits.argmax(dim=1)
                 y_pred.extend(pred.cpu().numpy())
