@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 from transformers.optimization import get_linear_schedule_with_warmup
 #from model import SentimentClassifier
-from torch.cuda.amp import GradScaler, autocast
+
 
 class Classifier:
     """
@@ -104,11 +104,16 @@ class Classifier:
         #device='cpu'
         self.model.to(device)
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=2e-5) #, weight_decay=0.001
+        # Initialize GradScaler for mixed precision training
+        if device!= 'cpu':
+            from torch.cuda.amp import GradScaler, autocast
+            scaler = GradScaler()
+        else:
+            autocast = lambda x: x  # Define a dummy autocast context manager for CPU
+
         # Add gradient accumulation steps
         gradient_accumulation_steps = 4
 
-        # Initialize GradScaler for mixed precision training
-        scaler = GradScaler()
         # Define the total number of training steps and the number of warmup steps
         total_steps = len(train_dataloader) * self.epochs
         warmup_steps = 0 #int(total_steps * 0.1)
@@ -130,22 +135,33 @@ class Classifier:
                 labels = batch[2].to(device)
 
                 # Enable mixed precision using autocast
-                with autocast():
+                if device != 'cpu':
+                    with autocast():
+                        outputs = self.model(input_ids, attention_mask)
+                        loss = loss_fn(outputs, labels)
+                else:
                     outputs = self.model(input_ids, attention_mask)
                     loss = loss_fn(outputs, labels)
 
-                # Scale the loss for mixed precision training
-                scaler.scale(loss).backward()
+                if device != 'cpu':
+                    # Scale the loss for mixed precision training
+                    scaler.scale(loss).backward()
 
-                # Accumulate gradients and update weights every gradient_accumulation_steps
-                if (i + 1) % gradient_accumulation_steps == 0:
-                    scaler.step(optimizer)
-                    scaler.update()
-                    optimizer.zero_grad()
-                    scheduler.step()
+                    # Accumulate gradients and update weights every gradient_accumulation_steps
+                    if (i + 1) % gradient_accumulation_steps == 0:
+                        scaler.step(optimizer)
+                        scaler.update()
+                        optimizer.zero_grad()
+                        scheduler.step()
+                else:
+                    loss.backward()
+                    if (i + 1) % gradient_accumulation_steps == 0:
+                        optimizer.step()
+                        optimizer.zero_grad()
+                        scheduler.step()
 
                 losses.append(loss.item() * gradient_accumulation_steps)  # Correct the loss value
-
+        
             # Calculate training accuracy
             self.model.eval()
             with torch.no_grad():

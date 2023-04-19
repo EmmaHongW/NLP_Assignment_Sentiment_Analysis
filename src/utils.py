@@ -62,3 +62,32 @@ def tokenize_text(text, tokenizer,max_length):
     sentence_right = text['sentence_right']
     input_text = '[CLS] ' + sentence_left + ' [SEP] ' + target + ' [SEP] ' + sentence_right + ' [SEP] '
     return tokenizer.encode_plus(input_text, add_special_tokens=False, max_length=max_length, padding='max_length', truncation=True, return_attention_mask=True, return_tensors='pt')
+
+import torch
+import numpy as np
+import pandas as pd
+
+from torch import nn
+from transformers import RobertaModel
+import torch.nn.functional as F
+import random as rn
+
+np.random.seed(17)
+rn.seed(12345)
+
+    
+# Define custom Roberta classifier
+class SentimentClassifier(nn.Module):
+    def __init__(self, num_labels):
+        super(SentimentClassifier, self).__init__()
+        self.roberta = RobertaModel.from_pretrained('roberta-base')
+        self.classifier = nn.Sequential(
+            nn.Linear(768, 768),
+            nn.Dropout(0.1),
+            nn.Linear(768, num_labels)
+        )
+
+    def forward(self, input_ids, attention_mask):
+        outputs = self.roberta(input_ids, attention_mask)
+        logits = self.classifier(outputs.pooler_output)
+        return logits
