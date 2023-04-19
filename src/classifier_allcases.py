@@ -8,6 +8,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 from transformers.optimization import get_linear_schedule_with_warmup
+import copy
 #from model import SentimentClassifier
 
 
@@ -192,8 +193,8 @@ class Classifier:
                         val_labels.extend(labels.tolist())
                     val_acc = np.mean(np.array(val_preds) == np.array(val_labels))
                     if val_acc > best_acc:
-                        torch.save(self.model, 'model_best.pt')
-
+                        #torch.save(self.model, 'model_best.pt')
+                        best_model = copy.deepcopy(self.model)
                 print(f"Epoch {epoch}, Training Loss: {np.mean(losses)}, Training Accuracy: {train_acc}, Validation Accuracy: {val_acc}")
             else:
                 # Calculate devdata accuracy
@@ -210,14 +211,15 @@ class Classifier:
                         test_labels.extend(labels.tolist())
                     test_acc = np.mean(np.array(test_preds) == np.array(test_labels))
                     if test_acc > best_acc:
-                        torch.save(self.model, 'model_best.pt')
+                        best_model = copy.deepcopy(self.model)
+                        #torch.save(self.model, 'model_best.pt')
                         best_acc = test_acc
                 print(f"Epoch {epoch}, Training Loss: {np.mean(losses)}, Training Accuracy: {train_acc}, Dev Accuracy: {test_acc}")
             self.loss_list.append(np.mean(losses))
             #torch.save(self.model, 'model_{}.pt'.format(epoch))
         # Load the best model(based on accuracy)
-        self.model = torch.load('model_best.pt')
-
+        #self.model = torch.load('model_best.pt')
+        self.model = best_model
 
     def predict(self, data_filename: str, device: torch.device) -> List[str]:
         """Predicts class labels for the input instances in file 'datafile'
