@@ -27,6 +27,13 @@ For the BERT pretrained model 'bert-base-uncased', we designed the input as '[CL
 
 For the RoBERTa pretrained model 'roberta-base', the input is similar to BERT, except that we removed the category as it didn't improve the result.
 
+##  Training Efficiency:
+To further enhance training efficiency and achieve faster training times while maintaining strong performance, we implemented mixed precision training and gradient accumulation techniques. Mixed precision training leverages both single-precision (FP32) and half-precision (FP16) formats during the training process. Do note that we are using autocast which automatically selects the best data type for each operation, meaning it only uses half-precision when it is safe to do so. Also the weight updates, however, are still performed in single-precision to maintain model accuracy and stability. For devices without mixed precision support (e.g., CPU), a dummy autocast context manager is defined to maintain compatibility.
+
+Gradient accumulation is another technique used to enable training with larger batch sizes. This method involves accumulating gradients from several mini-batches before performing a single weight update. By doing so, we can effectively utilize larger batch sizes without exhausting GPU memory, leading to more stable training and faster convergence.
+
+Implementing mixed precision training and gradient accumulation, in combination with our existing strategies such as pre-trained models, adaptive batch size, and linear scheduler, further improves training efficiency. This approach allows us to maintain high performance and complete model training within 5 minutes per run, striking a balance between speed and accuracy.
+
 ## Model Selection
 After reading some research paper, we found the deep learning model based on transformer significantly aced compared to classic machine learning model or statistical model. Therefore we selected BERT as the baseline and found RoBERTa which was an improved version of BERT afterwards.
 
