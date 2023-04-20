@@ -21,7 +21,7 @@ NLP Assignment: Aspect-Term Polarity Classification in Sentiment Analysis
 - GPU is strongly recommended to run the codes
 
 ## Data Preprocessing
-In the beginning, we tried several classic preprocessing method for NLP tasks such as lowering case, removing the stop words or lemmatization, but in fact it performed better without any preprocessing for the text input for the transformaer based model, like BERT. The model itself wad designed to handle original texts, the traditional proprocessing methods may reduce the contexts which can be useful for BERT.
+In the beginning, we tried several classic preprocessing method for NLP tasks such as lowering case, removing the stop words or lemmatization, but in fact it performed better without any preprocessing for the text input for the transformaer based model, like BERT. The model itself wad designed to handle original texts, the traditional proprocessing methods may reduce the contexts which can be useful.
 
 We used label encoding for the polarity labels: **0: 'positive, 1: 'neutral', 2: 'negative'**.
 
@@ -39,11 +39,11 @@ Implementing mixed precision training and gradient accumulation, in combination 
 ## Model Selection
 After reading some research paper, we found the transformer based deep learning model significantly aced compared to classic machine learning model or statistical model. Therefore we selected BERT('bert-base-uncased') as the baseline and found RoBERTa('roberta-base') which was an improved version of BERT afterwards.
 
-For the model training, we run 15 epochs for each model and select the best model according to the devdata accuracy (if not available, use validation set instead). We also defined a function to calculate the maximum length for tokens. The batch size was set as 32 and we used a linear scheduler to adjust the learning rate automatically. As it is shown in the EDA phase, we found the distributions of polarity labels in both the traindata and devdata are **imbalanced** (positive:0.70, negative:0.26, neutral:0.04). Therefore, we also set the **inverse ratio of [1.43, 25.00, 3.85]** to alleviate the influence.
+For the model training, we run 15 epochs for each model and select the best model according to the devdata accuracy (if not available, use validation set instead). We also defined a function to calculate the maximum length for tokens. The batch size was set as 32 and we used a linear scheduler to adjust the learning rate automatically. As it is shown in the EDA phase, we found the distributions of polarity labels in both the traindata and devdata are **imbalanced** (positive:0.70, negative:0.26, neutral:0.04). Therefore, we also set the **inverse ratio of [1.43, 25.00, 3.85]** as class weights and passed them as a parameter to the CrossEntropyLoss loss function to alleviate the influence.
 
-To use these Large Language Models(LLM), we imported their respective tokenizer directly. Then taking RoBERTa as an example, we defined the customized classifier by importing the RobertaModel as base layer and then add a classifier layer which take the architecture of the predefined RobertaForSequenceClassification as a reference. 
+To use these Large Language Models(LLMs), we imported their respective tokenizers directly. Then taking RoBERTa as an example, we defined the customized classifier by importing the RobertaModel as base layer and then add a classifier layer which take the architecture of the predefined classifier RobertaForSequenceClassification as a reference. 
 
-Besides BERT base and RoBERTa base, we also tried larger LLM like RoBERTa large which is trained on a much larger corpus of text data. According to huggingface, the Roberta base has 125 million parameters, while Roberta large has 355 million parameters. With larger LLM, we were able to reach a higher accuracy 89 on average, sometimes even 91. However RoBERTa large also required more computing resources and over 3 times slower then RoBERTa. Therefore, we decided to choose RoBERTa base at the end considering all the pros and cons.
+Besides BERT base and RoBERTa base, we also tried larger LLMs like RoBERTa large which is trained on a much larger corpus of text data. According to huggingface, the Roberta base has 125 million parameters, while Roberta large has 355 million parameters. With larger LLMs, we were able to reach a higher accuracy 89 on average, sometimes even 91. However RoBERTa large also required more computing resources and about 3 times slower then RoBERTa. Therefore, we decided to choose RoBERTa base in the end considering all the pros and cons.
 
 ## Final Performance
 The performance metric is accuracy, and the model training process should be able to finished around 5 min per run.
