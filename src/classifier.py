@@ -51,7 +51,7 @@ class Classifier:
         self.n_classes = len(train_data['polarity'].unique()) #was train_filename before
         
         # Set the batch size
-        self.batchsize = 30 #32 before
+        self.batchsize = 35 #32 before
 
         # Define Roberta tokenizer and model
         self.tokenizer = RobertaTokenizer.from_pretrained('roberta-base') 
