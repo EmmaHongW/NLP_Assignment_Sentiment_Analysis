@@ -8,8 +8,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 from transformers.optimization import get_linear_schedule_with_warmup
-#from model import SentimentClassifier
-from torch.cuda.amp import GradScaler, autocast
+import copy
+
 
 class Classifier:
     """
@@ -51,7 +51,7 @@ class Classifier:
         self.n_classes = len(train_data['polarity'].unique()) #was train_filename before
         
         # Set the batch size
-        self.batchsize = 32
+        self.batchsize = 30 #32 before
 
         # Define Roberta tokenizer and model
         self.tokenizer = RobertaTokenizer.from_pretrained('roberta-base') 
@@ -100,15 +100,19 @@ class Classifier:
 
         # Train Roberta classifier
         self.epochs = 15
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         #device='cpu'
         self.model.to(device)
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=2e-5) #, weight_decay=0.001
+        # Initialize GradScaler for mixed precision training
+        if device!= 'cpu':
+            from torch.cuda.amp import GradScaler, autocast
+            scaler = GradScaler()
+        else:
+            autocast = lambda x: x  # Define a dummy autocast context manager for CPU
+
         # Add gradient accumulation steps
         gradient_accumulation_steps = 4
 
-        # Initialize GradScaler for mixed precision training
-        scaler = GradScaler()
         # Define the total number of training steps and the number of warmup steps
         total_steps = len(train_dataloader) * self.epochs
         warmup_steps = 0 #int(total_steps * 0.1)
@@ -130,22 +134,33 @@ class Classifier:
                 labels = batch[2].to(device)
 
                 # Enable mixed precision using autocast
-                with autocast():
+                if device != 'cpu':
+                    with autocast():
+                        outputs = self.model(input_ids, attention_mask)
+                        loss = loss_fn(outputs, labels)
+                else:
                     outputs = self.model(input_ids, attention_mask)
                     loss = loss_fn(outputs, labels)
 
-                # Scale the loss for mixed precision training
-                scaler.scale(loss).backward()
+                if device != 'cpu':
+                    # Scale the loss for mixed precision training
+                    scaler.scale(loss).backward()
 
-                # Accumulate gradients and update weights every gradient_accumulation_steps
-                if (i + 1) % gradient_accumulation_steps == 0:
-                    scaler.step(optimizer)
-                    scaler.update()
-                    optimizer.zero_grad()
-                    scheduler.step()
+                    # Accumulate gradients and update weights every gradient_accumulation_steps
+                    if (i + 1) % gradient_accumulation_steps == 0:
+                        scaler.step(optimizer)
+                        scaler.update()
+                        optimizer.zero_grad()
+                        scheduler.step()
+                else:
+                    loss.backward()
+                    if (i + 1) % gradient_accumulation_steps == 0:
+                        optimizer.step()
+                        optimizer.zero_grad()
+                        scheduler.step()
 
                 losses.append(loss.item() * gradient_accumulation_steps)  # Correct the loss value
-
+        
             # Calculate training accuracy
             self.model.eval()
             with torch.no_grad():
@@ -176,8 +191,8 @@ class Classifier:
                         val_labels.extend(labels.tolist())
                     val_acc = np.mean(np.array(val_preds) == np.array(val_labels))
                     if val_acc > best_acc:
-                        torch.save(self.model, 'model_best.pt')
-
+                        #torch.save(self.model, 'model_best.pt')
+                        best_model = copy.deepcopy(self.model)
                 print(f"Epoch {epoch}, Training Loss: {np.mean(losses)}, Training Accuracy: {train_acc}, Validation Accuracy: {val_acc}")
             else:
                 # Calculate devdata accuracy
@@ -194,14 +209,15 @@ class Classifier:
                         test_labels.extend(labels.tolist())
                     test_acc = np.mean(np.array(test_preds) == np.array(test_labels))
                     if test_acc > best_acc:
-                        torch.save(self.model, 'model_best.pt')
+                        best_model = copy.deepcopy(self.model)
+                        #torch.save(self.model, 'model_best.pt')
                         best_acc = test_acc
                 print(f"Epoch {epoch}, Training Loss: {np.mean(losses)}, Training Accuracy: {train_acc}, Dev Accuracy: {test_acc}")
             self.loss_list.append(np.mean(losses))
             #torch.save(self.model, 'model_{}.pt'.format(epoch))
         # Load the best model(based on accuracy)
-        self.model = torch.load('model_best.pt')
-
+        #self.model = torch.load('model_best.pt')
+        self.model = best_model
 
     def predict(self, data_filename: str, device: torch.device) -> List[str]:
         """Predicts class labels for the input instances in file 'datafile'
